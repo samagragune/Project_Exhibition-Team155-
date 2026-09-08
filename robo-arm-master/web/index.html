@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robotic Arm 3D Autonomy Cockpit | DeepSeek & Qwen Spatial AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="stars-bg"></div>
+    <div class="scanline-overlay"></div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-container">
+        <!-- HEADER / NAVIGATION -->
+        <header class="top-bar">
+            <div class="brand-group">
+                <div class="brand-badge">
+                    <span class="pulse-dot"></span>
+                    <span class="brand-title">CYBER-ARM 3D</span>
+                </div>
+                <span class="brand-sub">Cognitive Autonomy Layer v3.0</span>
+            </div>
+
+            <div class="system-status-bar">
+                <div class="status-chip">
+                    <span class="chip-label">PHYSICS</span>
+                    <span class="chip-val green" id="physicsStatus">PyBullet 3D</span>
+                </div>
+                <div class="status-chip">
+                    <span class="chip-label">DEPTH SENSOR</span>
+                    <span class="chip-val cyan" id="depthSensorStatus">Active (Metric Z)</span>
+                </div>
+                <div class="status-chip">
+                    <span class="chip-label">AI MODEL</span>
+                    <select id="modelPresetSelect" class="chip-select">
+                        <option value="qwen2.5-vl">Qwen2.5-VL (Spatial Grounding)</option>
+                        <option value="deepseek-vl2">DeepSeek-VL2 (MoE Visual)</option>
+                        <option value="gemini-2.0">Gemini 2.0 Flash (Cloud)</option>
+                        <option value="lm-studio" selected>LM Studio (Local)</option>
+                        <option value="ollama">Ollama (Local)</option>
+                    </select>
+                </div>
+                <div class="status-chip">
+                    <span class="chip-label">SCENARIO</span>
+                    <span class="chip-val purple" id="activeScenarioLabel">Standard Sorting</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- DASHBOARD GRID -->
+        <main class="dashboard-grid">
+            <!-- LEFT COLUMN: LIVE DUAL SENSOR STREAMS & 3D PERCEPTION -->
+            <section class="left-col">
+                <!-- DUAL VIEWPORT CARD -->
+                <div class="glass-card viewport-card">
+                    <div class="card-header">
+                        <div class="header-title">
+                            <span class="icon">📷</span>
+                            <h3>Multi-Sensor Perception Stream</h3>
+                        </div>
+                        <div class="feed-toggle-group">
+                            <button class="tab-btn active" id="btnShowCamera">RGB Camera</button>
+                            <button class="tab-btn" id="btnShowDepth">3D Depth Heatmap</button>
+                            <button class="tab-btn" id="btnShowDual">Dual Monitor</button>
+                        </div>
+                    </div>
+
+                    <div class="viewport-display" id="viewportContainer">
+                        <div class="feed-panel" id="cameraPanel">
+                            <div class="feed-tag">OVERHEAD CAM (65° FOV @ 1.05m)</div>
+                            <img src="/capture" id="cameraStreamImg" alt="Overhead Camera Stream" class="stream-img">
+                            <div class="feed-crosshair"></div>
+                        </div>
+
+                        <div class="feed-panel" id="depthPanel">
+                            <div class="feed-tag depth-tag">SECONDARY DEPTH SENSOR (Z-ELEVATION)</div>
+                            <img src="/capture_depth" id="depthStreamImg" alt="Secondary Depth Heatmap" class="stream-img">
+                            <div class="depth-legend">
+                                <span>0cm (Table)</span>
+                                <div class="gradient-bar"></div>
+                                <span>15cm+ (Object Peak)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="viewport-controls">
+                        <button class="btn btn-secondary" id="btnRefreshFeed">
+                            <span class="btn-icon">🔄</span> Refresh Feeds
+                        </button>
+                        <button class="btn btn-secondary" id="btnParkSurvey">
+                            <span class="btn-icon">📐</span> Park Arm (Clear View)
+                        </button>
+                        <button class="btn btn-secondary" id="btnParkRest">
+                            <span class="btn-icon">🏠</span> Fold to Rest
+                        </button>
+                        <div class="frustum-note">
+                            <span>Camera elevated + arm scaled 0.58 to prevent occlusion</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3D OBJECT PERCEPTION GRID -->
+                <div class="glass-card perception-card">
+                    <div class="card-header">
+                        <div class="header-title">
+                            <span class="icon">🔍</span>
+                            <h3>3D Perception & Depth Grounding Inspector</h3>
+                        </div>
+                        <button class="btn btn-small" id="btnScanObjects">Run SAM 2.1 & Depth Fusion</button>
+                    </div>
+                    <div class="perception-table-wrapper">
+                        <table class="data-table" id="perceptionTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>3D Centroid (X, Y, Z)</th>
+                                    <th>Top Elevation</th>
+                                    <th>Dimensions (W×L×H)</th>
+                                    <th>Recommended Grasp Z</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="perceptionTableBody">
+                                <tr>
+                                    <td colspan="6" class="empty-state">Click "Run SAM 2.1 & Depth Fusion" or run an autonomy command.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT COLUMN: SCENARIO SELECTION, AUTONOMY CHAT & MANUAL OVERRIDE -->
+            <section class="right-col">
+                <!-- SCENARIO SWITCHER -->
+                <div class="glass-card scenario-card">
+                    <div class="card-header">
+                        <div class="header-title">
+                            <span class="icon">🌍</span>
+                            <h3>Cognitive Autonomy Environments (Vs VLAs)</h3>
+                        </div>
+                    </div>
+                    <div class="scenario-grid">
+                        <div class="scenario-pill active" data-scenario="sorting">
+                            <div class="sc-badge">BASELINE</div>
+                            <div class="sc-name">Workspace Sorting</div>
+                            <div class="sc-desc">Soda can, cubes & obstacle cylinders</div>
+                        </div>
+                        <div class="scenario-pill" data-scenario="mars_rover">
+                            <div class="sc-badge rover">ASTROBIOLOGY</div>
+                            <div class="sc-name">Mars Rover Sample</div>
+                            <div class="sc-desc">Hematite ore, olivine, basalt & carousel</div>
+                        </div>
+                        <div class="scenario-pill" data-scenario="chemistry_lab">
+                            <div class="sc-badge lab">BIO-SYNTHESIS</div>
+                            <div class="sc-name">Chemical Lab Bench</div>
+                            <div class="sc-desc">Acid/base vials, titration beaker, neutralizer</div>
+                        </div>
+                        <div class="scenario-pill" data-scenario="manufacturing_plant">
+                            <div class="sc-badge plant">INDUSTRIAL</div>
+                            <div class="sc-name">Electronics Assembly</div>
+                            <div class="sc-desc">IC chips, capacitors, PCB socket & QA reject</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AUTONOMY CHAT & REASONING CONSOLE -->
+                <div class="glass-card autonomy-card">
+                    <div class="card-header">
+                        <div class="header-title">
+                            <span class="icon">🧠</span>
+                            <h3>Spatial Reasoning & Autonomy Agent</h3>
+                        </div>
+                        <span class="badge live-badge">ONLINE</span>
+                    </div>
+
+                    <div class="chat-log" id="chatLog">
+                        <div class="msg system-msg">
+                            <div class="msg-author">SYSTEM</div>
+                            <div class="msg-body">
+                                Welcome to the <strong>Robotic Arm 3D Autonomy Cockpit</strong>. Enter high-level goals. The cognitive model will inspect the 3D depth map, reason step-by-step, and execute atomic kinematics.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PROMPT CHIPS -->
+                    <div class="prompt-chips">
+                        <button class="chip" data-prompt="park the arm out of the camera view to survey">📐 Clear Camera View</button>
+                        <button class="chip" data-prompt="pick up the blue cube and place it at (20, 20)">📦 Grab Blue Cube</button>
+                        <button class="chip" data-prompt="collect the hematite target mineral and index it into the carousel">🔴 Collect Hematite Ore</button>
+                        <button class="chip" data-prompt="sort the defective capacitor to the reject chute">⚡ Reject Bad Component</button>
+                        <button class="chip" data-prompt="open the gripper claw">🖐️ Open Claw</button>
+                    </div>
+
+                    <form class="chat-input-row" id="chatForm">
+                        <input type="text" id="chatInput" placeholder="Command the robotic arm in natural language..." autocomplete="off" required>
+                        <button type="submit" class="btn btn-primary" id="btnSend">
+                            <span>Execute</span>
+                            <span class="arrow">➔</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- TELEMETRY & MANUAL JOG OVERRIDE -->
+                <div class="glass-card jog-card">
+                    <div class="card-header">
+                        <div class="header-title">
+                            <span class="icon">🦾</span>
+                            <h3>Kinematics Telemetry & Manual Override</h3>
+                        </div>
+                    </div>
+
+                    <div class="telemetry-hud">
+                        <div class="hud-item">
+                            <span class="hud-label">TIP X</span>
+                            <span class="hud-val" id="hudX">25.0 cm</span>
+                        </div>
+                        <div class="hud-item">
+                            <span class="hud-label">TIP Y</span>
+                            <span class="hud-val" id="hudY">25.0 cm</span>
+                        </div>
+                        <div class="hud-item">
+                            <span class="hud-label">TIP Z</span>
+                            <span class="hud-val" id="hudZ">15.0 cm</span>
+                        </div>
+                        <div class="hud-item">
+                            <span class="hud-label">CLAW</span>
+                            <span class="hud-val" id="hudClaw">OPEN</span>
+                        </div>
+                    </div>
+
+                    <div class="jog-controls">
+                        <div class="slider-row">
+                            <label>Target X [0-50cm]: <span id="valX">25.0</span>cm</label>
+                            <input type="range" id="sliderX" min="5" max="45" step="0.5" value="25">
+                        </div>
+                        <div class="slider-row">
+                            <label>Target Y [0-50cm]: <span id="valY">25.0</span>cm</label>
+                            <input type="range" id="sliderY" min="5" max="45" step="0.5" value="25">
+                        </div>
+                        <div class="slider-row">
+                            <label>Target Z [0-28cm]: <span id="valZ">12.0</span>cm</label>
+                            <input type="range" id="sliderZ" min="1" max="25" step="0.5" value="12">
+                        </div>
+
+                        <div class="jog-btns">
+                            <button class="btn btn-small btn-secondary" id="btnMoveArm">Move Arm To Coords</button>
+                            <button class="btn btn-small btn-secondary" id="btnToggleClaw">Toggle Claw (Open/Close)</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.manifest
+
+# Virtual environments
+venv/
+env/
+ENV/
+AGENTS.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Runtime artifacts
+handshake/*.jpg
+handshake/*.png
+handshake/*.bmp
+
+# Test artifacts (annotated duplicates)
+test_artifacts/*_annotated_output.jpg
+test_artifacts/*_annotated_output.png
+
+# Model weights (large binary, should be downloaded or git-ignored)
+*.pt
+*.pth
+*.onnx
+
+# Simulator output / logs
+*.log
+*.tmp
+
+# UR5 model submodule (external repo)
+models/ur5_pybullet/.git
+
+# Environment variables / secrets
+.env
+.env.local
+
+# OS
+Thumbs.db
+.DS_Store
