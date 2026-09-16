@@ -23,8 +23,8 @@ print("  [PASS] Config verified successfully.")
 
 # 2. Simulator & Kinematics & Depth Sensor
 print("\n[TEST 2] Verifying simulator.py & PyBullet physics world...")
-import simulator
-sim = simulator.sim_world
+from simulator import get_sim_world
+sim = get_sim_world()
 
 # Verify arm scale and camera height
 print(f"  [PASS] Arm scale: {sim.arm_scale}, Camera eye: {sim.camera_eye}")
@@ -106,10 +106,10 @@ val_park = harness.validate_and_execute_tool("park_arm", {"pose": "survey"})
 assert val_park["status"] == "pass"
 print("  [PASS] Safety validation verified: Legal bounds enforced, out-of-envelope calls rejected.")
 
-# Test fallback decision logic
-act = harness._fallback_cognitive_decision("park the arm out of the way of the camera", objects_3d)
-assert act["tool_call"]["tool"] == "park_arm"
-print(f"  [PASS] Cognitive decision test passed: {act['tool_call']}")
+# Test tool validation for unknown tool
+val_unknown = harness.validate_and_execute_tool("unknown_tool", {})
+assert val_unknown["status"] == "error"
+print("  [PASS] Unknown tool correctly rejected.")
 
 # 6. Web Dashboard Assets
 print("\n[TEST 6] Verifying Web Dashboard files...")

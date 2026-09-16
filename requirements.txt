@@ -11,8 +11,7 @@ rich>=13.0.0
 # Simulator backend
 fastapi>=0.104.0
 uvicorn>=0.24.0
-pybullet>=3.2.6
-pybullet-data>=3.2.6
+pybullet>=3.2.6 # pybullet_data>=3.2.6 comes with pybullet>=3.2.6
 
 # Optional (UR5 model utilities)
 attrdict>=2.0.0

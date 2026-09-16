@@ -62,6 +62,8 @@ print(f"  [PASS] POST /execute_tool (Park arm executed)")
 # 9. Test scan
 res = client.post("/api/scan")
 assert res.status_code == 200
-print(f"  [PASS] POST /api/scan (Scan returned {len(res.json()['objects'])} objects)")
+scan_data = res.json()
+obj_count = len(scan_data.get("objects", []))
+print(f"  [PASS] POST /api/scan (Scan returned {obj_count} objects)")
 
 print("\n[ALL HTTP & FASTAPI SERVER TESTS PASSED!]")

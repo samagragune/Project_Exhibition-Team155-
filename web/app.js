@@ -92,14 +92,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 hudClaw.textContent = clawState.toUpperCase();
                 hudClaw.style.color = clawState === "closed" ? "var(--accent-coral)" : "var(--accent-emerald)";
 
-                // Update scenario label
-                const scNames = {
-                    "sorting": "Standard Sorting",
-                    "mars_rover": "Mars Rover Curation",
-                    "chemistry_lab": "Chemistry Lab Bench",
-                    "manufacturing_plant": "Electronics Plant"
-                };
-                activeScenarioLabel.textContent = scNames[data.active_scenario] || data.active_scenario;
+                // Update scenario label - DISABLED (scenario bar hidden)
+                // const scNames = {
+                //     "sorting": "Standard Sorting",
+                //     "mars_rover": "Mars Rover Curation",
+                //     "chemistry_lab": "Chemistry Lab Bench",
+                //     "manufacturing_plant": "Electronics Plant"
+                // };
+                // activeScenarioLabel.textContent = scNames[data.active_scenario] || data.active_scenario;
             }
         } catch (e) {
             console.warn("Telemetry fetch error:", e);
@@ -110,16 +110,41 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchTelemetry, 1500);
     fetchTelemetry();
 
+    // Refresh camera feed every 2 seconds
+    setInterval(refreshFeeds, 2000);
+    refreshFeeds();
+
+    // Model preset selector - DISABLED (hidden in UI)
+    // modelPresetSelect.addEventListener("change", async () => {
+    //     const preset = modelPresetSelect.value;
+    //     try {
+    //         const res = await fetch("/api/set_model_preset", {
+    //         method: "POST",
+    //         headers: { "Content-Type": "application/json" },
+    //         body: JSON.stringify({ preset })
+    //         });
+    //         if (res.ok) {
+    //             appendMessage("SYSTEM", `Model preset changed to <strong>${preset}</strong>.`);
+    //         } else {
+    //             appendMessage("ERROR", `Failed to switch model preset: ${res.status}`);
+    //         }
+    //     } catch (e) {
+    //         appendMessage("ERROR", `Connection error switching model: ${e}`);
+    //     }
+    // });
+
     // Scan Objects & Depth Fusion
     async function scanObjects() {
         try {
             btnScanObjects.textContent = "Scanning...";
             const res = await fetch("/api/scan", { method: "POST" });
-            if (res.ok) {
-                const data = await res.json();
-                renderPerceptionTable(data.objects || []);
-                refreshFeeds();
+            if (!res.ok) {
+                console.error(`Scan failed: HTTP ${res.status}`);
+                return;
             }
+            const data = await res.json();
+            renderPerceptionTable(data.objects || []);
+            refreshFeeds();
         } catch (err) {
             console.error("Scan error:", err);
         } finally {
@@ -168,6 +193,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     arguments: { x_cm: x, y_cm: y, z_cm: z }
                 })
             });
+            if (!res.ok) {
+                appendMessage("ERROR", `Failed to move arm: HTTP ${res.status}`);
+                return;
+            }
             const data = await res.json();
             appendMessage("ROBOT", `Action executed: ${data.status.toUpperCase()}`, null, {
                 tool: "move_arm",
@@ -192,7 +221,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (tool) {
-            html += `<div class="tool-chip">⚡ Tool: <strong>${tool.tool || tool.name}</strong> ${JSON.stringify(tool.args || tool.arguments || {})}</div>`;
+            const toolName = tool.tool || tool.name;
+            let toolArgs = tool.args || tool.arguments || {};
+            let argsStr = typeof toolArgs === "string" ? toolArgs : JSON.stringify(toolArgs);
+            html += `<div class="tool-chip">⚡ Tool: <strong>${toolName}</strong> ${argsStr}</div>`;
         }
 
         msgDiv.innerHTML = html;
@@ -216,14 +248,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({ command: cmd })
             });
 
-            if (res.ok) {
-                const data = await res.json();
-                appendMessage("AGENT", data.response_text || "Step complete.", data.reasoning, data.tool_call);
-                if (data.detected_objects) {
-                    renderPerceptionTable(data.detected_objects);
-                }
-            } else {
-                appendMessage("ERROR", "Autonomy layer encountered an error processing request.");
+            if (!res.ok) {
+                appendMessage("ERROR", `Autonomy layer error: HTTP ${res.status}`);
+                return;
+            }
+            const data = await res.json();
+            appendMessage("AGENT", data.response_text || "Step complete.", data.reasoning, data.tool_call);
+            if (data.detected_objects) {
+                renderPerceptionTable(data.detected_objects);
             }
         } catch (err) {
             appendMessage("ERROR", `Connection error: ${err}`);
@@ -237,57 +269,71 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".prompt-chips .chip").forEach(chip => {
         chip.addEventListener("click", () => {
             chatInput.value = chip.getAttribute("data-prompt");
-            chatForm.dispatchEvent(new Event("submit"));
+            chatForm.requestSubmit();
         });
     });
 
-    // Scenario Switching
-    document.querySelectorAll(".scenario-pill").forEach(pill => {
-        pill.addEventListener("click", async () => {
-            const sc = pill.getAttribute("data-scenario");
-            document.querySelectorAll(".scenario-pill").forEach(p => p.classList.remove("active"));
-            pill.classList.add("active");
-
-            appendMessage("SYSTEM", `Switching cognitive scenario environment to <strong>${sc}</strong>...`);
-            try {
-                const res = await fetch("/switch_scenario", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ scenario: sc })
-                });
-                if (res.ok) {
-                    appendMessage("SYSTEM", `Environment loaded: <strong>${sc}</strong>.`);
-                    refreshFeeds();
-                    fetchTelemetry();
-                    scanObjects();
-                }
-            } catch (err) {
-                appendMessage("ERROR", `Failed to switch scenario: ${err}`);
-            }
-        });
-    });
+    // Scenario Switching - DISABLED (scenarios hidden from frontend)
+    // document.querySelectorAll(".scenario-pill").forEach(pill => {
+    //     pill.addEventListener("click", async () => {
+    //         const sc = pill.getAttribute("data-scenario");
+    //         document.querySelectorAll(".scenario-pill").forEach(p => p.classList.remove("active"));
+    //         pill.classList.add("active");
+    //
+    //         appendMessage("SYSTEM", `Switching cognitive scenario environment to <strong>${sc}</strong>...`);
+    //         try {
+    //             const res = await fetch("/switch_scenario", {
+    //                 method: "POST",
+    //                 headers: { "Content-Type": "application/json" },
+    //                 body: JSON.stringify({ scenario: sc })
+    //             });
+    //             if (!res.ok) {
+    //                 appendMessage("ERROR", `Failed to switch scenario: HTTP ${res.status}`);
+    //                 return;
+    //             }
+    //             appendMessage("SYSTEM", `Environment loaded: <strong>${sc}</strong>.`);
+    //             refreshFeeds();
+    //             fetchTelemetry();
+    //             scanObjects();
+    //         } catch (err) {
+    //             appendMessage("ERROR", `Failed to switch scenario: ${err}`);
+    //         }
+    //     });
+    // });
 
     // Park Buttons
     btnParkSurvey.addEventListener("click", async () => {
         appendMessage("USER", "Park arm in survey pose to clear camera frustum.");
-        await fetch("/execute_tool", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tool: "park_arm", arguments: { pose: "survey" } })
-        });
-        refreshFeeds();
-        fetchTelemetry();
+        try {
+            const res = await fetch("/execute_tool", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tool: "park_arm", arguments: { pose: "survey" } })
+            });
+            if (res.ok) {
+                refreshFeeds();
+                fetchTelemetry();
+            }
+        } catch (e) {
+            appendMessage("ERROR", `Park failed: ${e}`);
+        }
     });
 
     btnParkRest.addEventListener("click", async () => {
         appendMessage("USER", "Fold arm into compact rest position.");
-        await fetch("/execute_tool", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tool: "park_arm", arguments: { pose: "rest" } })
-        });
-        refreshFeeds();
-        fetchTelemetry();
+        try {
+            const res = await fetch("/execute_tool", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tool: "park_arm", arguments: { pose: "rest" } })
+            });
+            if (res.ok) {
+                refreshFeeds();
+                fetchTelemetry();
+            }
+        } catch (e) {
+            appendMessage("ERROR", `Park failed: ${e}`);
+        }
     });
 
     // Manual Jog Sliders
@@ -300,24 +346,36 @@ document.addEventListener("DOMContentLoaded", () => {
         const y = parseFloat(sliderY.value);
         const z = parseFloat(sliderZ.value);
 
-        await fetch("/api/manual_move", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "move", x: x, y: y, z: z })
-        });
-        refreshFeeds();
-        fetchTelemetry();
+        try {
+            const res = await fetch("/api/manual_move", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "move", x: x, y: y, z: z })
+            });
+            if (res.ok) {
+                refreshFeeds();
+                fetchTelemetry();
+            }
+        } catch (e) {
+            appendMessage("ERROR", `Move failed: ${e}`);
+        }
     });
 
     btnToggleClaw.addEventListener("click", async () => {
         const nextState = clawState === "closed" ? "open" : "closed";
-        await fetch("/api/manual_move", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "claw", state: nextState })
-        });
-        refreshFeeds();
-        fetchTelemetry();
+        try {
+            const res = await fetch("/api/manual_move", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "claw", state: nextState })
+            });
+            if (res.ok) {
+                refreshFeeds();
+                fetchTelemetry();
+            }
+        } catch (e) {
+            appendMessage("ERROR", `Claw toggle failed: ${e}`);
+        }
     });
 
     // Initial scan
