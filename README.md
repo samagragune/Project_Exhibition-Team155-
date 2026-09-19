@@ -4,7 +4,7 @@ An AI-driven **Cognitive Autonomy Layer** for lower-cost robotic arms that repla
 
 ---
 
-## 🚀 Key Autonomy Features & Roadmap Implementation
+## Key Autonomy Features & Roadmap Implementation
 
 ### 1. Camera Frustum Optimization & Compact Arm Scaling (Roadmap #2)
 - **Elevated Frustum**: The top-down camera is elevated to `1.05m` with a wide `65°` FOV, capturing the full 50cm × 50cm workspace without link occlusion.
@@ -31,10 +31,10 @@ An AI-driven **Cognitive Autonomy Layer** for lower-cost robotic arms that repla
 
 ### 4. Diverse Cognitive Scenarios vs VLAs (Roadmap #5)
 Demonstrates the strengths of decoupled cognitive autonomy over brittle end-to-end VLAs across 4 distinct working scenarios:
-- 📦 **Standard Workspace Sorting (`sorting`)**: Red soda can, blue cubes, obstacle cylinders, and yellow calibration markers.
-- 🔴 **Mars Rover Sample Curation (`mars_rover`)**: Martian red regolith terrain, target hematite core sample, olivine crystal mineral, basalt discard rock, and hermetic rover carousel sample containers.
-- 🧪 **Chemical & Bio-Synthesis Lab (`chemistry_lab`)**: Sterile cleanroom bench, concentrated acid vial, base neutralizer, titration reaction beaker, and hazardous waste disposal basin.
-- ⚡ **High-Precision Electronics Assembly (`manufacturing_plant`)**: Anti-static ESD mat, microcontroller QFN chip, valid electrolytic capacitor, defective bulged capacitor, PCB socket, and QA reject chute.
+- **Standard Workspace Sorting (`sorting`)**: Red soda can, blue cubes, obstacle cylinders, and yellow calibration markers.
+- **Mars Rover Sample Curation (`mars_rover`)**: Martian red regolith terrain, target hematite core sample, olivine crystal mineral, basalt discard rock, and hermetic rover carousel sample containers.
+- **Chemical & Bio-Synthesis Lab (`chemistry_lab`)**: Sterile cleanroom bench, concentrated acid vial, base neutralizer, titration reaction beaker, and hazardous waste disposal basin.
+- **High-Precision Electronics Assembly (`manufacturing_plant`)**: Anti-static ESD mat, microcontroller QFN chip, valid electrolytic capacitor, defective bulged capacitor, PCB socket, and QA reject chute.
 - **Dynamic Scenario Switcher**: Live switching via `POST /switch_scenario` or web interface.
 
 ### 5. Cyber-Aerospace Web Cockpit & Telemetry (Roadmap #6)
@@ -47,7 +47,7 @@ Demonstrates the strengths of decoupled cognitive autonomy over brittle end-to-e
 
 ---
 
-## 🛠️ Quick Start
+## Quick Start
 
 ### Installation
 
@@ -67,25 +67,9 @@ python simulator.py
 ```
 Open your browser and navigate to: **`http://127.0.0.1:8080`**
 
-### Running the Rich TUI Orchestrator (CLI Mode)
-
-```bash
-# In a second terminal, launch the interactive CLI loop
-python orchestrator.py
-```
-
-Useful slash commands in the TUI:
-- `/scenario mars_rover` — switch to Mars Rover scenario
-- `/scenario chemistry_lab` — switch to Chemistry Lab scenario
-- `/scenario manufacturing_plant` — switch to Electronics Plant scenario
-- `/scenario sorting` — switch to standard sorting scenario
-- `/model qwen2.5-vl` — switch to Qwen2.5-VL model preset
-- `/model deepseek-vl2` — switch to DeepSeek-VL2 model preset
-- `/model gemini-2.0` — switch to Gemini 2.0 preset
-
 ---
 
-## 📡 API Endpoints
+## API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -102,7 +86,7 @@ Useful slash commands in the TUI:
 
 ---
 
-## 🧪 Automated Verification Suite
+## Automated Verification Suite
 
 Run the full automated test suite verifying kinematics, depth fusion, model configurations, and all 4 scenarios:
 

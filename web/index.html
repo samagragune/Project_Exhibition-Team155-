@@ -59,17 +59,12 @@
                 <div class="glass-card viewport-card">
                     <div class="card-header">
                         <div class="header-title">
-                            <span class="icon">📷</span>
+                            <span class="icon"></span>
                             <h3>Multi-Sensor Perception Stream</h3>
-                        </div>
-                        <div class="feed-toggle-group">
-                            <button class="tab-btn active" id="btnShowCamera">RGB Camera</button>
-                            <button class="tab-btn" id="btnShowDepth">3D Depth Heatmap</button>
-                            <button class="tab-btn" id="btnShowDual">Dual Monitor</button>
                         </div>
                     </div>
 
-                    <div class="viewport-display" id="viewportContainer">
+                    <div class="viewport-display dual-mode" id="viewportContainer">
                         <div class="feed-panel" id="cameraPanel">
                             <div class="feed-tag">OVERHEAD CAM (65° FOV @ 1.05m)</div>
                             <img src="/capture" id="cameraStreamImg" alt="Overhead Camera Stream" class="stream-img">
@@ -85,17 +80,22 @@
                                 <span>15cm+ (Object Peak)</span>
                             </div>
                         </div>
+
+                        <div class="feed-panel" id="annotatedPanel">
+                            <div class="feed-tag annotated-tag">SAM 2.1 + OPENCV ANNOTATION</div>
+                            <img src="/capture_annotated" id="annotatedStreamImg" alt="SAM 2.1 Annotated Output" class="stream-img">
+                        </div>
                     </div>
 
                     <div class="viewport-controls">
                         <button class="btn btn-secondary" id="btnRefreshFeed">
-                            <span class="btn-icon">🔄</span> Refresh Feeds
+                            <span class="btn-icon"></span> Refresh Feeds
                         </button>
                         <button class="btn btn-secondary" id="btnParkSurvey">
-                            <span class="btn-icon">📐</span> Park Arm (Clear View)
+                            <span class="btn-icon"></span> Park Arm (Clear View)
                         </button>
                         <button class="btn btn-secondary" id="btnParkRest">
-                            <span class="btn-icon">🏠</span> Fold to Rest
+                            <span class="btn-icon"></span> Fold to Rest
                         </button>
                         <div class="frustum-note">
                             <span>Camera elevated + arm scaled 0.58 to prevent occlusion</span>
@@ -107,7 +107,7 @@
                 <div class="glass-card perception-card">
                     <div class="card-header">
                         <div class="header-title">
-                            <span class="icon">🔍</span>
+                            <span class="icon"></span>
                             <h3>3D Perception & Depth Grounding Inspector</h3>
                         </div>
                         <button class="btn btn-small" id="btnScanObjects">Run SAM 2.1 & Depth Fusion</button>
@@ -140,7 +140,7 @@
              <div class="glass-card scenario-card" style="display: none;">
                     <div class="card-header">
                         <div class="header-title">
-                            <span class="icon">🌍</span>
+                            <span class="icon"></span>
                             <h3>Cognitive Autonomy Environments (Vs VLAs)</h3>
                         </div>
                     </div>
@@ -172,7 +172,7 @@
                 <div class="glass-card autonomy-card">
                     <div class="card-header">
                         <div class="header-title">
-                            <span class="icon">🧠</span>
+                            <span class="icon"></span>
                             <h3>Spatial Reasoning & Autonomy Agent</h3>
                         </div>
                         <span class="badge live-badge">ONLINE</span>
@@ -189,11 +189,8 @@
 
                     <!-- PROMPT CHIPS -->
                     <div class="prompt-chips">
-                        <button class="chip" data-prompt="park the arm out of the camera view to survey">📐 Clear Camera View</button>
-                        <button class="chip" data-prompt="pick up the blue cube and place it at (20, 20)">📦 Grab Blue Cube</button>
-                        <button class="chip" data-prompt="collect the hematite target mineral and index it into the carousel">🔴 Collect Hematite Ore</button>
-                        <button class="chip" data-prompt="sort the defective capacitor to the reject chute">⚡ Reject Bad Component</button>
-                        <button class="chip" data-prompt="open the gripper claw">🖐️ Open Claw</button>
+                        <button class="chip" data-prompt="park the arm out of the camera view to survey"> Clear Camera View</button>
+                        <button class="chip" data-prompt="pick up the blue cube and place it at (20, 20)"> Grab Blue Cube</button>
                     </div>
 
                     <form class="chat-input-row" id="chatForm">
@@ -209,7 +206,7 @@
                 <div class="glass-card jog-card">
                     <div class="card-header">
                         <div class="header-title">
-                            <span class="icon">🦾</span>
+                            <span class="icon"></span>
                             <h3>Kinematics Telemetry & Manual Override</h3>
                         </div>
                     </div>

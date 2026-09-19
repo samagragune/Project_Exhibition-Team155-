@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 import uvicorn
 import config
+from threading import Lock
 
 def ensure_ur5_downloaded():
     """Downloads PyBullet UR5 model repository automatically if not present."""
@@ -148,6 +149,15 @@ class WorldSimulator:
         self._spawn_default_objects()
         p.setRealTimeSimulation(0, physicsClientId=self.physics_client)
         print(f"[Simulator] Initialized. Active Scenario: '{self.active_scenario}', Arm Scale: {self.arm_scale}")
+
+        # Frame cache for high-FPS streaming
+        self._frame_cache_lock = Lock()
+        self._cached_camera_jpeg = None
+        self._cached_depth_jpeg = None
+        self._cache_update_interval = 0.05  # 20 FPS cache update
+        self._cache_thread = None
+        self._cache_running = False
+        self._start_frame_cache_thread()
 
     def _spawn_default_objects(self):
         """Spawns the default scene: red soda can, blue cube, and 4 yellow
@@ -424,10 +434,148 @@ class WorldSimulator:
         norm_depth = np.clip((depth_cm / max_depth) * 255.0, 0, 255).astype(np.uint8)
 
         depth_bgr = cv2.applyColorMap(norm_depth, cv2.COLORMAP_TURBO)
+        # Flip vertically to match camera view orientation (y-axis upside down fix)
+        depth_bgr = cv2.flip(depth_bgr, 0)
         _, enc_img = cv2.imencode('.jpg', depth_bgr)
         return enc_img.tobytes()
 
-    def execute_move_arm(self, x_cm: float, y_cm: float, z_cm: float):
+    # --- Frame Cache for High-FPS Streaming ---
+    def _start_frame_cache_thread(self):
+        """Starts background thread to continuously update frame cache."""
+        self._cache_running = True
+        self._cache_thread = threading.Thread(target=self._frame_cache_loop, daemon=True)
+        self._cache_thread.start()
+        print("[Simulator] Frame cache thread started (20 FPS)")
+
+    def _frame_cache_loop(self):
+        """Background loop that renders and caches frames at fixed interval."""
+        while self._cache_running:
+            try:
+                # Render camera frame (use TinyRenderer for speed)
+                cam_jpeg = self._render_camera_frame_fast()
+                depth_jpeg = self._render_depth_frame_fast()
+                
+                with self._frame_cache_lock:
+                    self._cached_camera_jpeg = cam_jpeg
+                    self._cached_depth_jpeg = depth_jpeg
+            except Exception as e:
+                print(f"[FrameCache] Error: {e}")
+            
+            time.sleep(self._cache_update_interval)
+
+    def _render_camera_frame_fast(self) -> bytes:
+        """Fast camera render using TinyRenderer at lower resolution for streaming."""
+        res_w, res_h = 320, 240  # Lower resolution for speed
+        
+        view_matrix = p.computeViewMatrix(
+            cameraEyePosition=self.camera_eye,
+            cameraTargetPosition=self.camera_target,
+            cameraUpVector=self.camera_up
+        )
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=cfg.get("CAMERA_FOV", 60.0),
+            aspect=float(res_w) / res_h,
+            nearVal=cfg.get("CAMERA_NEAR", 0.1),
+            farVal=cfg.get("CAMERA_FAR", 2.0)
+        )
+
+        # Use TinyRenderer (CPU) for consistent speed
+        _, _, rgb_pixels, _, _ = p.getCameraImage(
+            width=res_w,
+            height=res_h,
+            viewMatrix=view_matrix,
+            projectionMatrix=proj_matrix,
+            renderer=p.ER_TINY_RENDERER
+        )
+
+        if not rgb_pixels or len(rgb_pixels) != res_w * res_h * 4:
+            blank = np.zeros((res_h, res_w, 3), dtype=np.uint8)
+            _, enc_img = cv2.imencode('.jpg', blank)
+            return enc_img.tobytes()
+
+        frame_rgba = np.reshape(rgb_pixels, (res_h, res_w, 4)).astype(np.uint8)
+        frame_rgb = frame_rgba[:, :, :3]
+        frame_bgr = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR)
+        _, enc_img = cv2.imencode('.jpg', frame_bgr)
+        return enc_img.tobytes()
+
+    def _render_depth_frame_fast(self) -> bytes:
+        """Fast depth render at lower resolution."""
+        res_w, res_h = 320, 240
+        
+        view_matrix = p.computeViewMatrix(
+            cameraEyePosition=self.camera_eye,
+            cameraTargetPosition=self.camera_target,
+            cameraUpVector=self.camera_up
+        )
+        proj_matrix = p.computeProjectionMatrixFOV(
+            fov=cfg.get("CAMERA_FOV", 60.0),
+            aspect=float(res_w) / res_h,
+            nearVal=cfg.get("CAMERA_NEAR", 0.1),
+            farVal=cfg.get("CAMERA_FAR", 2.0)
+        )
+
+        _, depth_buf = p.getCameraImage(
+            width=res_w,
+            height=res_h,
+            viewMatrix=view_matrix,
+            projectionMatrix=proj_matrix,
+            renderer=p.ER_TINY_RENDERER
+        )[2:4]
+
+        if depth_buf is None or len(depth_buf) != res_w * res_h:
+            blank = np.zeros((res_h, res_w, 3), dtype=np.uint8)
+            _, enc_img = cv2.imencode('.jpg', blank)
+            return enc_img.tobytes()
+
+        depth_array = np.reshape(depth_buf, (res_h, res_w)).astype(np.float64)
+        depth_array = np.flipud(depth_array)
+
+        near, far = cfg.get("CAMERA_NEAR", 0.1), cfg.get("CAMERA_FAR", 2.0)
+        depth_array = near * far / (far - depth_array * (far - near))
+
+        table_height = 0.0
+        elevation_m = self.camera_eye[2] - depth_array
+        elevation_cm = (elevation_m - table_height) * 100.0
+        elevation_cm = np.clip(elevation_cm, 0, None)
+
+        max_depth = 12.0
+        norm_depth = np.clip((elevation_cm / max_depth) * 255.0, 0, 255).astype(np.uint8)
+        depth_bgr = cv2.applyColorMap(norm_depth, cv2.COLORMAP_TURBO)
+        depth_bgr = cv2.flip(depth_bgr, 0)
+        _, enc_img = cv2.imencode('.jpg', depth_bgr)
+        return enc_img.tobytes()
+
+    def get_cached_camera_frame(self) -> bytes:
+        """Returns cached camera frame (high-FPS streaming)."""
+        with self._frame_cache_lock:
+            if self._cached_camera_jpeg is not None:
+                return self._cached_camera_jpeg
+        # Fallback to full render if cache not ready
+        return self.render_esp32_frame((320, 240))
+
+    def get_cached_depth_frame(self) -> bytes:
+        """Returns cached depth frame (high-FPS streaming)."""
+        with self._frame_cache_lock:
+            if self._cached_depth_jpeg is not None:
+                return self._cached_depth_jpeg
+        # Fallback to full render if cache not ready
+        return self.render_depth_frame()
+
+    def cleanup(self):
+        """Shuts down the physics client and cache thread."""
+        self._cache_running = False
+        if self._cache_thread:
+            self._cache_thread.join(timeout=1.0)
+        if self.physics_client is not None:
+            try:
+                p.disconnect(physicsClientId=self.physics_client)
+            except Exception:
+                pass
+            self.physics_client = None
+            print("[Simulator] Physics client disconnected.")
+
+    def execute_move_arm(self, x_cm, y_cm, z_cm) -> dict:
         """Solves inverse kinematics to move the UR5 arm end-effector to the
         target (x, y, z) in centimeters. Applies 12cm tool-length offset so
         the fingertips land precisely on the target position."""
@@ -696,6 +844,9 @@ class WorldSimulator:
 _sim_world_instance = None
 _sim_world_lock = threading.Lock()
 
+_sam_processor_instance = None
+_sam_processor_lock = threading.Lock()
+
 
 def get_sim_world():
     """Lazy initializer for the simulation world. Prevents PyBullet from
@@ -707,6 +858,19 @@ def get_sim_world():
             if _sim_world_instance is None:
                 _sim_world_instance = WorldSimulator()
     return _sim_world_instance
+
+
+def get_sam_processor():
+    """Lazy singleton for the SAM 2.1 processor. Loads the model only once
+    (on first request or explicit init) and reuses it across all chat turns.
+    Thread-safe: only one SAM2Processor with a loaded model is ever created."""
+    global _sam_processor_instance
+    if _sam_processor_instance is None:
+        with _sam_processor_lock:
+            if _sam_processor_instance is None:
+                from sam2_processor import SAM2Processor
+                _sam_processor_instance = SAM2Processor(config=config.sam2_processor_CONFIG)
+    return _sam_processor_instance
 
 def cleanup_sim_world():
     """Explicitly shut down the simulation and release resources."""
@@ -731,13 +895,28 @@ def index_page():
 
 @app.get("/capture")
 def capture_frame():
-    jpeg_bytes = get_sim_world().render_esp32_frame()
+    # Use cached frame for high-FPS streaming
+    jpeg_bytes = get_sim_world().get_cached_camera_frame()
     return Response(content=jpeg_bytes, media_type="image/jpeg")
 
 @app.get("/capture_depth")
 def capture_depth_frame():
-    jpeg_bytes = get_sim_world().render_depth_frame()
+    # Use cached frame for high-FPS streaming
+    jpeg_bytes = get_sim_world().get_cached_depth_frame()
     return Response(content=jpeg_bytes, media_type="image/jpeg")
+
+@app.get("/capture_annotated")
+def capture_annotated_frame():
+    """Returns the latest SAM 2.1 + OpenCV annotated frame as a static JPEG."""
+    output_path = config.sam2_processor_CONFIG.get("OUTPUT_IMAGE", "handshake/annotated_output.jpg")
+    if os.path.exists(output_path):
+        with open(output_path, "rb") as f:
+            return Response(content=f.read(), media_type="image/jpeg")
+    # Return a placeholder if no annotation exists yet
+    blank = np.zeros((480, 640, 3), dtype=np.uint8)
+    cv2.putText(blank, "Run 'Scan Objects' to generate annotation", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    _, enc_img = cv2.imencode('.jpg', blank)
+    return Response(content=enc_img.tobytes(), media_type="image/jpeg")
 
 @app.get("/telemetry")
 def get_telemetry():
@@ -802,9 +981,8 @@ def manual_move(payload: dict):
 @app.post("/api/scan")
 def scan_workspace():
     """Triggers SAM 2.1 segmentation + depth fusion on the current frame."""
-    from sam2_processor import SAM2Processor
     sw = get_sim_world()
-    processor = SAM2Processor(config=config.sam2_processor_CONFIG)
+    processor = get_sam_processor()
 
     raw_path = "handshake/raw_capture.jpg"
     os.makedirs("handshake", exist_ok=True)
@@ -827,12 +1005,10 @@ def scan_workspace():
 def autonomy_chat_step(payload: dict):
     """Executes a full perception-reasoning-action cycle from a user natural language command.
     Loops autonomously after each tool call until the LLM returns a text response or max turns."""
-    from sam2_processor import SAM2Processor
     from agent_harness import AgentHarness
     command = payload.get("command", "")
     sw = get_sim_world()
-
-    processor = SAM2Processor(config=config.sam2_processor_CONFIG)
+    processor = get_sam_processor()
     harness = AgentHarness()
     max_turns = config.simulator_CONFIG.get("MAX_AUTO_TURNS", 30)
 
@@ -928,6 +1104,8 @@ if __name__ == "__main__":
     import atexit
     # Pre-initialize in main thread to avoid PyBullet GUI thread issues
     get_sim_world()
+    # Eagerly load the SAM 2.1 model so it's ready before the first request
+    get_sam_processor()
     print(f"\n[Simulator] Starting Robotic Arm Simulator at http://{cfg['HOST']}:{cfg['PORT']}")
     atexit.register(cleanup_sim_world)
     uvicorn.run(app, host=cfg["HOST"], port=cfg["PORT"], log_level="warning")

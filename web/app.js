@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Elements
     const cameraStreamImg = document.getElementById("cameraStreamImg");
     const depthStreamImg = document.getElementById("depthStreamImg");
+    const annotatedStreamImg = document.getElementById("annotatedStreamImg");
     const viewportContainer = document.getElementById("viewportContainer");
     const cameraPanel = document.getElementById("cameraPanel");
     const depthPanel = document.getElementById("depthPanel");
@@ -30,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeScenarioLabel = document.getElementById("activeScenarioLabel");
     const modelPresetSelect = document.getElementById("modelPresetSelect");
 
-    const sliderX = document.getElementById("sliderX");
+const sliderX = document.getElementById("sliderX");
     const sliderY = document.getElementById("sliderY");
     const sliderZ = document.getElementById("sliderZ");
     const valX = document.getElementById("valX");
@@ -41,39 +42,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let clawState = "open";
 
-    // Feed Switching
-    function setViewportMode(mode) {
-        btnShowCamera.classList.remove("active");
-        btnShowDepth.classList.remove("active");
-        btnShowDual.classList.remove("active");
-
-        if (mode === "camera") {
-            btnShowCamera.classList.add("active");
-            viewportContainer.classList.remove("dual-mode");
-            cameraPanel.classList.remove("hidden");
-            depthPanel.classList.add("hidden");
-        } else if (mode === "depth") {
-            btnShowDepth.classList.add("active");
-            viewportContainer.classList.remove("dual-mode");
-            cameraPanel.classList.add("hidden");
-            depthPanel.classList.remove("hidden");
-        } else if (mode === "dual") {
-            btnShowDual.classList.add("active");
-            viewportContainer.classList.add("dual-mode");
-            cameraPanel.classList.remove("hidden");
-            depthPanel.classList.remove("hidden");
-        }
-    }
-
-    btnShowCamera.addEventListener("click", () => setViewportMode("camera"));
-    btnShowDepth.addEventListener("click", () => setViewportMode("depth"));
-    btnShowDual.addEventListener("click", () => setViewportMode("dual"));
-
-    // Refresh Camera & Depth Streams
+// Refresh Camera & Depth Streams
     function refreshFeeds() {
         const ts = Date.now();
         cameraStreamImg.src = `/capture?t=${ts}`;
         depthStreamImg.src = `/capture_depth?t=${ts}`;
+        annotatedStreamImg.src = `/capture_annotated?t=${ts}`;
     }
 
     btnRefreshFeed.addEventListener("click", refreshFeeds);
@@ -110,8 +84,8 @@ document.addEventListener("DOMContentLoaded", () => {
     setInterval(fetchTelemetry, 1500);
     fetchTelemetry();
 
-    // Refresh camera feed every 2 seconds
-    setInterval(refreshFeeds, 2000);
+    // Refresh camera feed every 100ms (~10 FPS)
+    setInterval(refreshFeeds, 100);
     refreshFeeds();
 
     // Model preset selector - DISABLED (hidden in UI)
